@@ -53,9 +53,19 @@ class CorrectionService:
             analysis_result.diagnostics,
         )
 
+        # Fallback to rule-based engine if agent produced no candidates
+        if not raw_candidates:
+            from backend.app.agents.mock_agent import MockCorrectionAgent
+            if not isinstance(self.agent, MockCorrectionAgent):
+                raw_candidates = MockCorrectionAgent().propose_corrections(
+                    source_code,
+                    analysis_result.diagnostics,
+                )
+
         ai_available = bool(settings.AI_ENABLED and settings.GEMINI_API_KEY) or isinstance(
             self.agent, BaseCorrectionAgent
         )
+
 
         # Validate candidates
         validated_candidates: list[CorrectionCandidate] = []

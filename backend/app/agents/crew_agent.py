@@ -83,11 +83,21 @@ class CrewAICorrectionAgent(BaseCorrectionAgent):
                 result = future.result()
 
             raw_text = str(result.raw) if hasattr(result, "raw") else str(result)
-            return self._parse_json_response(raw_text)
+            parsed = self._parse_json_response(raw_text)
+            if parsed:
+                return parsed
+            raise ValueError("CrewAI did not return any valid candidate JSON")
 
         except Exception as e:
-            logger.error(f"CrewAI execution failed: {e}")
-            return []
+            logger.warning(f"CrewAI execution failed ({e}). Falling back to direct GeminiCorrectionAgent...")
+            try:
+                from backend.app.agents.gemini_agent import GeminiCorrectionAgent
+                direct_agent = GeminiCorrectionAgent(api_key=self.api_key, model=self.model_name)
+                return direct_agent.propose_corrections(source_code, diagnostics)
+            except Exception as e2:
+                logger.error(f"Fallback GeminiCorrectionAgent also failed: {e2}")
+                return []
+
 
     def _parse_json_response(self, text: str) -> list[CorrectionCandidate]:
         candidates: list[CorrectionCandidate] = []
